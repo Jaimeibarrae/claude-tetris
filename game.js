@@ -15,6 +15,18 @@ const COLORS = [
   '#ffb74d', // L - orange
 ];
 
+// Variante más oscura para contrastar sobre fondo claro (índice 0 = vacío)
+const COLORS_LIGHT = [
+  null,
+  '#00acc1', // I
+  '#f9a825', // O
+  '#8e24aa', // T
+  '#43a047', // S
+  '#e53935', // Z
+  '#1e88e5', // J
+  '#fb8c00', // L
+];
+
 const PIECES = [
   null,
   [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]], // I
@@ -39,6 +51,10 @@ const overlay = document.getElementById('overlay');
 const overlayTitle = document.getElementById('overlay-title');
 const overlayScore = document.getElementById('overlay-score');
 const restartBtn = document.getElementById('restart-btn');
+const themeBtn = document.getElementById('theme-toggle');
+
+let gridColor = '#22222e';
+let palette = COLORS;
 
 let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
 
@@ -158,7 +174,7 @@ function updateHUD() {
 
 function drawBlock(context, x, y, colorIndex, size, alpha) {
   if (!colorIndex) return;
-  const color = COLORS[colorIndex];
+  const color = palette[colorIndex];
   context.globalAlpha = alpha ?? 1;
   context.fillStyle = color;
   context.fillRect(x * size + 1, y * size + 1, size - 2, size - 2);
@@ -169,7 +185,7 @@ function drawBlock(context, x, y, colorIndex, size, alpha) {
 }
 
 function drawGrid() {
-  ctx.strokeStyle = '#22222e';
+  ctx.strokeStyle = gridColor;
   ctx.lineWidth = 0.5;
   for (let c = 1; c < COLS; c++) {
     ctx.beginPath();
@@ -256,6 +272,20 @@ function loop(ts) {
   animId = requestAnimationFrame(loop);
 }
 
+function applyTheme(theme, save) {
+  const isLight = theme === 'light';
+  document.documentElement.dataset.theme = isLight ? 'light' : 'dark';
+  palette = isLight ? COLORS_LIGHT : COLORS;
+  gridColor = getComputedStyle(document.documentElement).getPropertyValue('--grid').trim() || gridColor;
+  themeBtn.textContent = isLight ? 'Modo oscuro' : 'Modo claro';
+  themeBtn.setAttribute('aria-pressed', String(isLight));
+  if (save) {
+    try { localStorage.setItem('theme', isLight ? 'light' : 'dark'); } catch (e) {}
+  }
+  // El loop está detenido en pausa/game over: repintar manualmente
+  if (current && next) { draw(); drawNext(); }
+}
+
 function init() {
   board = createBoard();
   score = 0;
@@ -300,5 +330,15 @@ document.addEventListener('keydown', e => {
 });
 
 restartBtn.addEventListener('click', init);
+
+themeBtn.addEventListener('click', () => {
+  const isLight = document.documentElement.dataset.theme === 'light';
+  applyTheme(isLight ? 'dark' : 'light', true);
+  themeBtn.blur(); // evita que Espacio (caída) active el botón
+});
+
+let savedTheme = 'dark';
+try { savedTheme = localStorage.getItem('theme') === 'light' ? 'light' : 'dark'; } catch (e) {}
+applyTheme(savedTheme, false);
 
 init();
