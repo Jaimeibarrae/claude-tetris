@@ -591,3 +591,39 @@ test('los temporizadores no se acumulan entre partidas', () => {
   const e2 = new GameEngine({ rng: () => 0.5 });
   assert.equal(e2.status, 'playing');
 });
+
+// ---------- Nivel inicial ----------
+
+test('startLevel=5: nivel 5, dropInterval acorde y sube a 6 tras 10 líneas', () => {
+  const e = newEngine();
+  e.reset({ startLevel: 5 });
+  assert.equal(e.startLevel, 5);
+  assert.equal(e.level, 5);
+  assert.equal(e.dropInterval, Math.max(C.drop.min, C.drop.base - 4 * C.drop.step));
+  e.addLines(10);
+  assert.equal(e.level, 6);
+});
+
+test('startLevel inválido se recorta o ignora', () => {
+  const e = newEngine();
+  for (const [v, exp] of [[0, 1], [99, 15], [NaN, 1], ['abc', 1], ['7', 7], [-3, 1], [undefined, 1]]) {
+    e.reset({ startLevel: v });
+    assert.equal(e.startLevel, exp, String(v));
+    assert.equal(e.level, exp);
+  }
+});
+
+test('el modo desafío ignora startLevel', () => {
+  const e = newEngine();
+  e.reset({ challenge: { id: 'survival', level: 0 }, startLevel: 9 });
+  assert.equal(e.level, 1);
+});
+
+test('undo conserva el nivel con startLevel', () => {
+  const e = newEngine();
+  e.reset({ startLevel: 5 });
+  e.hardDrop();
+  e.undo();
+  assert.equal(e.level, 5);
+  assert.equal(e.startLevel, 5);
+});
