@@ -44,7 +44,9 @@
       this.board = Board.create();
       this.score = 0;
       this.lines = 0;
-      this.level = 1;
+      const sl = Math.trunc(Number(opts.startLevel));
+      this.startLevel = opts.challenge || !Number.isFinite(sl) ? 1 : Math.min(15, Math.max(1, sl));
+      this.level = this.startLevel;
       this.dropAccum = 0;
       this.lastAction = null;
       this.history = [];
@@ -238,7 +240,7 @@
     // Líneas → nivel, energía y power-ups
     addLines(n) {
       this.lines += n;
-      this.level = Math.floor(this.lines / 10) + 1;
+      this.level = this.startLevel + Math.floor(this.lines / 10);
       const full = this.abilities.addEnergy(n);
       const gained = this.powerups.onLines(n, this.rng);
       if (gained) this.emit('powerup-gained', { type: gained });
