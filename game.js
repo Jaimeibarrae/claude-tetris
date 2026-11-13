@@ -6,7 +6,7 @@
  * y se reacciona a sus eventos.
  */
 (function () {
-  const { Config: C, Board, Pieces, GameEngine, PowerUpManager, AbilityManager, ChallengeManager, Sound, FX } = window.Tetris;
+  const { Config: C, Board, Pieces, GameEngine, PowerUpManager, AbilityManager, ChallengeManager, Sound, FX, Skins } = window.Tetris;
   const { COLS, ROWS, CELL } = C;
   const BLOCK = 30; // el canvas de index.html (300×600) debe coincidir con COLS*BLOCK × ROWS*BLOCK
 
@@ -24,7 +24,7 @@
     score: $('score'), lines: $('lines'), level: $('level'),
     overlay: $('overlay'), title: $('overlay-title'), oScore: $('overlay-score'), detail: $('overlay-detail'),
     restart: $('restart-btn'), resume: $('resume-btn'), menuBtn: $('menu-btn'),
-    theme: $('theme-toggle'), mute: $('mute-btn'), toMenu: $('to-menu-btn'),
+    theme: $('theme-toggle'), skinSelect: $('skin-select'), mute: $('mute-btn'), toMenu: $('to-menu-btn'),
     puSlot: $('powerup-slot'), puIcon: $('pu-icon'), puName: $('pu-name'),
     energyBar: document.querySelector('.bar.energy'), energyFill: $('energy-fill'), abilityBtn: $('ability-btn'),
     combo: $('combo-value'), b2b: $('b2b-badge'),
@@ -40,6 +40,7 @@
   const fx = new FX();
   let palette = C.colors;
   let gridColor = '#22222e';
+  let skin = Skins.get(Skins.DEFAULT);
   let lastSpec = null;        // desafío actual ({id, level}) o null en clásico
   let shownStatus = null;     // último estado reflejado en la UI
 
@@ -68,19 +69,14 @@
     if (!v) return;
     const px = ox + x * size + 1, py = oy + y * size + 1, s = size - 2;
     c.globalAlpha = alpha ?? 1;
+    let color;
     if (v === CELL.WILD) {
       const hue = (x * 36 + y * 18 + performance.now() / 12) % 360;
-      c.fillStyle = `hsl(${hue}, 85%, 62%)`;
+      color = `hsl(${hue}, 85%, 62%)`;
     } else {
-      c.fillStyle = palette[v];
+      color = palette[v];
     }
-    c.fillRect(px, py, s, s);
-    c.fillStyle = 'rgba(255,255,255,0.12)';
-    c.fillRect(px, py, s, Math.max(2, size / 7));
-    if (v === CELL.GARBAGE) {
-      c.fillStyle = 'rgba(0,0,0,0.25)';
-      c.fillRect(px + 3, py + 3, s - 6, s - 6);
-    }
+    skin.drawBlock(c, px, py, s, color, { size, garbage: v === CELL.GARBAGE });
     c.globalAlpha = 1;
   }
 
@@ -554,6 +550,7 @@
   const BLOCKED_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowDown', 'ArrowUp', 'Space']);
 
   document.addEventListener('keydown', e => {
+    if (e.target === el.skinSelect) { if (e.code === 'Escape') el.skinSelect.blur(); return; } // el selector usa sus teclas
     Sound.unlock();
     if (BLOCKED_KEYS.has(e.code) && !(e.code === 'Space' && engine.status === 'paused')) e.preventDefault();
     const s = engine.status;
@@ -648,12 +645,31 @@
   function applyTheme(theme, save) {
     const isLight = theme === 'light';
     document.documentElement.dataset.theme = isLight ? 'light' : 'dark';
-    palette = isLight ? C.colorsLight : C.colors;
-    gridColor = getComputedStyle(document.documentElement).getPropertyValue('--grid').trim() || gridColor;
     el.theme.textContent = isLight ? 'Modo oscuro' : 'Modo claro';
     el.theme.setAttribute('aria-pressed', String(isLight));
     if (save) { try { localStorage.setItem('theme', isLight ? 'light' : 'dark'); } catch (e) {} }
+    refreshSkin();
   }
+  // Paleta, cuadrícula y fondo del tablero según la skin activa (y el tema, solo en Retro)
+  function refreshSkin() {
+    const isLight = document.documentElement.dataset.theme === 'light';
+    palette = Skins.palette(skin, isLight);
+    gridColor = Skins.gridColor(skin, isLight);
+    canvas.style.background = Skins.boardBg(skin, isLight) || '';
+    document.documentElement.dataset.skin = skin.id;
+  }
+  function applySkin(id, save) {
+    skin = Skins.get(id);
+    el.skinSelect.value = skin.id;
+    refreshSkin();
+    if (save) { try { localStorage.setItem('tetris-skin', skin.id); } catch (e) {} }
+  }
+  Skins.list.forEach(s => {
+    const o = document.createElement('option');
+    o.value = s.id; o.textContent = s.name;
+    el.skinSelect.appendChild(o);
+  });
+  el.skinSelect.addEventListener('change', () => { applySkin(el.skinSelect.value, true); el.skinSelect.blur(); });
   el.theme.addEventListener('click', () => {
     applyTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light', true);
   });
@@ -671,6 +687,9 @@
     savedTheme = localStorage.getItem('theme') === 'light' ? 'light' : 'dark';
     savedMute = localStorage.getItem('muted') === '1';
   } catch (e) {}
+  let savedSkin = Skins.DEFAULT;
+  try { savedSkin = localStorage.getItem('tetris-skin') || savedSkin; } catch (e) {}
+  applySkin(savedSkin, false);
   applyTheme(savedTheme, false);
   applyMute(savedMute, false);
 
