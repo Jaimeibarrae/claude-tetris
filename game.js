@@ -427,11 +427,12 @@
     const btns = [...el.pauseBox.querySelectorAll('button')];
     if (!btns.length) return;
     const i = btns.indexOf(document.activeElement);
+    if (i < 0) { if (/^(Arrow(Up|Down)|Enter)$/.test(e.code)) { e.preventDefault(); btns[0].focus(); } return; }
     if (e.code === 'ArrowDown') btns[(i + 1) % btns.length].focus();
     else if (e.code === 'ArrowUp') btns[(i - 1 + btns.length) % btns.length].focus();
     else if ((e.code === 'ArrowLeft' || e.code === 'ArrowRight') && document.activeElement && document.activeElement.dataset.level) {
       stepStartLevel(e.code === 'ArrowLeft' ? -1 : 1);
-    } else if (e.code === 'Enter' && i < 0) btns[0].click();
+    }
   }
 
   // ---------- Estado → overlays ----------
@@ -554,7 +555,7 @@
 
   document.addEventListener('keydown', e => {
     Sound.unlock();
-    if (BLOCKED_KEYS.has(e.code)) e.preventDefault();
+    if (BLOCKED_KEYS.has(e.code) && !(e.code === 'Space' && engine.status === 'paused')) e.preventDefault();
     const s = engine.status;
 
     if (s === 'paused') {
