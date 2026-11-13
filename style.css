@@ -172,6 +172,21 @@ kbd {
   border-color: var(--accent);
 }
 
+/* ---- Selector de skin ---- */
+.skin-row { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--controls-text); }
+#skin-select {
+  background: var(--panel-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+#skin-select:hover { border-color: var(--accent); }
+:root[data-skin="neon"] #board:not(.frozen):not(.slow) { border-color: #00f0ff; box-shadow: 0 0 24px rgba(0, 240, 255, 0.45); }
+
 /* ---- Overlay ---- */
 .overlay {
   position: absolute;

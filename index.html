@@ -7,6 +7,8 @@
   <script>
     try {
       if (localStorage.getItem('theme') === 'light') document.documentElement.dataset.theme = 'light';
+      var sk = localStorage.getItem('tetris-skin');
+      if (sk) document.documentElement.dataset.skin = sk;
     } catch (e) {}
   </script>
   <link rel="stylesheet" href="style.css" />
@@ -103,6 +105,9 @@
         </div>
 
         <div class="panel-section buttons">
+          <label class="skin-row">Skin
+            <select id="skin-select" aria-label="Skin"></select>
+          </label>
           <button id="theme-toggle" type="button" aria-pressed="false">Modo claro</button>
           <button id="mute-btn" type="button" aria-pressed="false">Sonido: sí</button>
           <button id="to-menu-btn" type="button">Menú</button>
@@ -159,6 +164,7 @@
   <script src="js/audio.js"></script>
   <script src="js/fx.js"></script>
   <script src="js/records.js"></script>
+  <script src="js/skins.js"></script>
   <script src="game.js"></script>
 </body>
 </html>
