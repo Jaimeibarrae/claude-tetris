@@ -402,3 +402,17 @@ kbd {
 .controls-list { display: grid; grid-template-columns: auto auto; gap: 6px 18px; text-align: left; font-size: 13px; margin: 4px 0; }
 .controls-list dt { font-weight: 700; color: var(--accent); }
 .controls-list dd { margin: 0; color: var(--controls-text); }
+/* ---------- Récords ---------- */
+.records-box { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.records-box.hidden { display: none; }
+.records-list { list-style: none; margin: 0; padding: 0; width: 260px; font-family: 'Courier New', Courier, monospace; font-size: 13px; }
+.records-list li { display: flex; gap: 8px; padding: 3px 8px; border-radius: 4px; }
+.records-list .r-name { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; }
+.records-list .r-lines { opacity: 0.7; }
+.records-list li.current { background: var(--accent); color: var(--accent-text); font-weight: 700; }
+.records-empty { justify-content: center; opacity: 0.7; }
+.records-new { color: var(--ok); font-weight: 800; letter-spacing: 2px; margin: 0; }
+.records-form { display: flex; flex-direction: column; gap: 6px; align-items: center; font-size: 13px; }
+.records-input { padding: 6px 8px; border-radius: 4px; border: 1px solid var(--accent); text-align: center; font-size: 14px; width: 160px; }
+.records-save, .records-clear { cursor: pointer; padding: 6px 14px; border-radius: 4px; border: 0; background: var(--accent); color: var(--accent-text); font-weight: 700; }
+.records-clear { width: auto; align-self: center; font-size: 12px; text-align: center; }

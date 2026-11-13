@@ -6,7 +6,7 @@
  * y se reacciona a sus eventos.
  */
 (function () {
-  const { Config: C, Board, Pieces, GameEngine, PowerUpManager, AbilityManager, ChallengeManager, Sound, FX, Skins } = window.Tetris;
+  const { Config: C, Board, Pieces, GameEngine, PowerUpManager, AbilityManager, ChallengeManager, Sound, FX, Skins, Records } = window.Tetris;
   const { COLS, ROWS, CELL } = C;
   const BLOCK = 30; // el canvas de index.html (300×600) debe coincidir con COLS*BLOCK × ROWS*BLOCK
 
@@ -22,7 +22,7 @@
   const holdCtx = holdCanvas.getContext('2d');
   const el = {
     score: $('score'), lines: $('lines'), level: $('level'),
-    overlay: $('overlay'), title: $('overlay-title'), oScore: $('overlay-score'), detail: $('overlay-detail'),
+    overlay: $('overlay'), title: $('overlay-title'), oScore: $('overlay-score'), detail: $('overlay-detail'), recordsBox: $('records-box'),
     restart: $('restart-btn'), resume: $('resume-btn'), menuBtn: $('menu-btn'),
     theme: $('theme-toggle'), skinSelect: $('skin-select'), mute: $('mute-btn'), toMenu: $('to-menu-btn'),
     puSlot: $('powerup-slot'), puIcon: $('pu-icon'), puName: $('pu-name'),
@@ -62,6 +62,71 @@
     if (text) n.textContent = text;
     if (onClick) n.addEventListener('click', onClick);
     return n;
+  }
+
+  // ---------- Récords ----------
+  const store = (() => { try { return window.localStorage; } catch (e) { return null; } })();
+  let maxCombo = 0;           // combo máximo de la partida en curso
+  let recordsHandled = false; // evita guardar dos veces el mismo resultado
+  let pendingSave = null;     // guarda el récord con el nombre escrito si se sale sin pulsar Guardar
+
+  function recordsTable(list, hlIdx) {
+    const ol = make('ol', 'records-list');
+    if (!list.length) { ol.appendChild(make('li', 'records-empty', 'Aún no hay récords')); return ol; }
+    list.forEach((r, i) => {
+      const li = make('li', i === hlIdx ? 'current' : '');
+      li.append(make('span', 'r-pos', `${i + 1}.`), make('span', 'r-name', r.name),
+        make('span', 'r-score', r.score.toLocaleString()), make('span', 'r-lines', `${r.lines} lín.`));
+      ol.appendChild(li);
+    });
+    return ol;
+  }
+
+  function showGameOverRecords() {
+    const box = el.recordsBox;
+    box.replaceChildren();
+    show(box, true);
+    const list = Records.load(store);
+    const finish = (newList, rank) => {
+      box.replaceChildren();
+      if (rank) box.appendChild(make('p', 'records-new', `¡Nuevo récord! #${rank}`));
+      box.appendChild(recordsTable(newList, rank - 1));
+    };
+    if (recordsHandled || !Records.qualifies(list, engine.score)) { finish(list, 0); return; }
+    recordsHandled = true;
+    const input = make('input', 'records-input');
+    input.type = 'text'; input.maxLength = Records.NAME_MAX; input.value = Records.DEFAULT_NAME;
+    input.setAttribute('aria-label', 'Nombre');
+    let saved = false;
+    const save = () => {
+      if (saved) return;
+      saved = true;
+      pendingSave = null;
+      const r = Records.add(Records.load(store), {
+        name: input.value, score: engine.score, lines: engine.lines, level: engine.level,
+        maxCombo, date: new Date().toISOString(),
+      });
+      const ok = Records.save(store, r.list);
+      finish(r.list, r.rank);
+      if (!ok) box.appendChild(make('p', 'menu-sub', 'No se pudo guardar en este navegador.'));
+    };
+    pendingSave = save;
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') save(); });
+    const row = make('div', 'records-form');
+    row.append(make('span', '', '¡Entras en el top! Tu nombre:'), input, make('button', 'records-save', 'Guardar', save));
+    box.appendChild(row);
+    input.focus(); input.select();
+  }
+
+  function recordsMenuBlock(box) {
+    const list = Records.load(store);
+    const b = Records.bests(list);
+    box.appendChild(make('p', 'menu-sub', 'MEJORES PUNTUACIONES'));
+    box.appendChild(recordsTable(list, -1));
+    box.appendChild(make('p', 'menu-sub', `Mejor combo: x${b.maxCombo} · Máx. líneas: ${b.maxLines}`));
+    if (list.length) box.appendChild(make('button', 'menu-btn secondary records-clear', 'Borrar récords', () => {
+      if (confirm('¿Borrar todos los récords?')) { Records.clear(store); showMain(); }
+    }));
   }
 
   // ---------- Dibujo ----------
@@ -285,6 +350,7 @@
       chal.appendChild(make('small', '', '5 retos con objetivos y 3 dificultades'));
       list.append(classic, chal);
       box.appendChild(list);
+      recordsMenuBlock(box);
     });
   }
 
@@ -341,6 +407,9 @@
     lastSpec = spec;
     fx.reset();
     hideMenu();
+    if (pendingSave) pendingSave();
+    maxCombo = 0;
+    recordsHandled = false;
     engine.reset(spec ? { challenge: spec } : { startLevel: getStartLevel() });
     syncStatus();
   }
@@ -452,6 +521,7 @@
     show(el.abilityMenu, s === 'abilityMenu');
     el.title.classList.toggle('win', s === 'won');
     show(el.resume, s === 'paused');
+    show(el.recordsBox, false);
 
     if (s === 'ready') showBriefing();
     if (s === 'over') {
@@ -460,6 +530,7 @@
       el.oScore.textContent = `Puntuación: ${engine.score.toLocaleString()}`;
       el.detail.textContent = ch ? (END_REASONS[engine.endReason] || '') : '';
       el.restart.textContent = ch ? 'Reintentar' : 'Reiniciar';
+      if (!ch) showGameOverRecords();
     } else if (s === 'won') {
       const ch = engine.challenge;
       markDone(ch.def.id, ch.levelIdx);
@@ -493,6 +564,7 @@
   engine.on('banner', b => { fx.showBanner(b.text); Sound.play('banner'); });
 
   engine.on('lines', d => {
+    maxCombo = Math.max(maxCombo, d.combo || 0);
     d.cells.forEach(({ x, y, v }) => { const [px, py] = cellCenter(x, y); fx.burst(px, py, colorOf(v), d.count >= 4 ? 4 : 2); });
     fx.boardFlashMs = 500;
     if (d.labels.includes('PERFECT CLEAR')) { Sound.play('perfect'); fx.flash(900, '#fff59d'); fx.shake(350, 6); }
@@ -551,6 +623,7 @@
 
   document.addEventListener('keydown', e => {
     if (e.target === el.skinSelect) { if (e.code === 'Escape') el.skinSelect.blur(); return; } // el selector usa sus teclas
+    if (e.target && e.target.tagName === 'INPUT') return; // escribiendo el nombre: sin atajos
     Sound.unlock();
     if (BLOCKED_KEYS.has(e.code) && !(e.code === 'Space' && engine.status === 'paused')) e.preventDefault();
     const s = engine.status;
@@ -639,7 +712,7 @@
   el.resume.addEventListener('click', () => engine.togglePause());
   el.menuBtn.addEventListener('click', () => { hideOverlays(); showMain(); });
   el.toMenu.addEventListener('click', () => { hideOverlays(); showMain(); });
-  function hideOverlays() { show(el.overlay, false); show(el.pauseMenu, false); show(el.abilityMenu, false); shownStatus = null; }
+  function hideOverlays() { if (pendingSave) pendingSave(); show(el.overlay, false); show(el.pauseMenu, false); show(el.abilityMenu, false); shownStatus = null; }
 
   // ---------- Tema y sonido ----------
   function applyTheme(theme, save) {
