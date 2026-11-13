@@ -29,6 +29,7 @@
     energyBar: document.querySelector('.bar.energy'), energyFill: $('energy-fill'), abilityBtn: $('ability-btn'),
     combo: $('combo-value'), b2b: $('b2b-badge'),
     fxFreeze: $('fx-freeze'), fxSlow: $('fx-slow'), fxFore: $('fx-foresight'),
+    pauseMenu: $('pause-menu'), pauseBox: $('pause-box'),
     hint: $('hint'), menu: $('menu'), menuBox: $('menu-box'),
     abilityMenu: $('ability-menu'), abilityList: $('ability-list'),
     chHud: $('challenge-hud'), chName: $('ch-name'), chTimer: $('ch-timer'), chFill: $('ch-fill'), chText: $('ch-text'),
@@ -344,8 +345,93 @@
     lastSpec = spec;
     fx.reset();
     hideMenu();
-    engine.reset(spec ? { challenge: spec } : {});
+    engine.reset(spec ? { challenge: spec } : { startLevel: getStartLevel() });
     syncStatus();
+  }
+
+  // ---------- Menú de pausa ----------
+  const START_LEVEL_KEY = 'tetris-start-level';
+  const MAX_START_LEVEL = 15;
+  const PAUSE_GUARD_MS = 150;
+  let guardUntil = 0;              // descarta teclas de juego tras reanudar (solo UI)
+  const menuKeys = new Set();      // teclas pulsadas mientras el menú está abierto
+
+  function getStartLevel() {
+    try {
+      const n = parseInt(localStorage.getItem(START_LEVEL_KEY), 10);
+      if (n >= 1 && n <= MAX_START_LEVEL) return n;
+    } catch (e) {}
+    return 1;
+  }
+  function setStartLevel(n) {
+    try { localStorage.setItem(START_LEVEL_KEY, String(n)); } catch (e) {}
+  }
+
+  const CONTROLS = [
+    ['← →', 'Mover'], ['↑ / X', 'Rotar'], ['Z', 'Rotar inverso'], ['↓', 'Bajar'],
+    ['Espacio', 'Caída instantánea'], ['C / Shift', 'Guardar pieza (hold)'],
+    ['E', 'Usar power-up'], ['Q', 'Habilidades'], ['P / Esc', 'Pausa'],
+  ];
+
+  function pauseScreen(build) {
+    el.pauseBox.replaceChildren();
+    build(el.pauseBox);
+    const first = el.pauseBox.querySelector('button');
+    if (first) first.focus();
+  }
+
+  function showPauseMain() {
+    pauseScreen(box => {
+      box.appendChild(make('p', 'menu-title', 'PAUSA'));
+      const list = make('div', 'menu-list');
+      list.appendChild(make('button', 'menu-btn', 'Reanudar', () => togglePause()));
+      list.appendChild(make('button', 'menu-btn', 'Reiniciar', () => startGame(lastSpec)));
+      list.appendChild(make('button', 'menu-btn', 'Ver controles', showPauseControls));
+      const lvl = make('button', 'menu-btn', '', () => stepStartLevel(1));
+      lvl.dataset.level = '1';
+      lvl._paint = () => {
+        lvl.textContent = `Nivel inicial: ◀ ${getStartLevel()} ▶`;
+        lvl.appendChild(make('small', '', lastSpec ? 'Solo para partidas clásicas' : 'Se aplica a la próxima partida'));
+      };
+      lvl._paint();
+      list.appendChild(lvl);
+      list.appendChild(make('button', 'menu-btn secondary', 'Menú', () => { hideOverlays(); showMain(); }));
+      box.appendChild(list);
+    });
+  }
+
+  function stepStartLevel(d) {
+    const n = ((getStartLevel() - 1 + d + MAX_START_LEVEL) % MAX_START_LEVEL) + 1;
+    setStartLevel(n);
+    const b = el.pauseBox.querySelector('[data-level]');
+    if (b && b._paint) { b._paint(); b.focus(); }
+  }
+
+  function showPauseControls() {
+    pauseScreen(box => {
+      box.appendChild(make('p', 'menu-title', 'CONTROLES'));
+      const dl = make('dl', 'controls-list');
+      CONTROLS.forEach(([k, d]) => { dl.appendChild(make('dt', '', k)); dl.appendChild(make('dd', '', d)); });
+      box.appendChild(dl);
+      box.appendChild(make('button', 'menu-btn secondary', 'Volver', showPauseMain));
+    });
+  }
+
+  function togglePause() {
+    const wasPaused = engine.status === 'paused';
+    engine.togglePause();
+    if (wasPaused && engine.status !== 'paused') guardUntil = performance.now() + PAUSE_GUARD_MS;
+  }
+
+  function pauseNav(e) {
+    const btns = [...el.pauseBox.querySelectorAll('button')];
+    if (!btns.length) return;
+    const i = btns.indexOf(document.activeElement);
+    if (e.code === 'ArrowDown') btns[(i + 1) % btns.length].focus();
+    else if (e.code === 'ArrowUp') btns[(i - 1 + btns.length) % btns.length].focus();
+    else if ((e.code === 'ArrowLeft' || e.code === 'ArrowRight') && document.activeElement && document.activeElement.dataset.level) {
+      stepStartLevel(e.code === 'ArrowLeft' ? -1 : 1);
+    } else if (e.code === 'Enter' && i < 0) btns[0].click();
   }
 
   // ---------- Estado → overlays ----------
@@ -359,20 +445,19 @@
   function syncStatus() {
     const s = engine.status;
     if (s === shownStatus) return;
+    const prevStatus = shownStatus;
     shownStatus = s;
 
-    show(el.overlay, s === 'paused' || s === 'over' || s === 'won');
+    if (prevStatus === 'paused' && s === 'playing') guardUntil = Math.max(guardUntil, performance.now() + PAUSE_GUARD_MS);
+    show(el.overlay, s === 'over' || s === 'won');
+    show(el.pauseMenu, s === 'paused');
+    if (s === 'paused') { menuKeys.clear(); showPauseMain(); }
     show(el.abilityMenu, s === 'abilityMenu');
     el.title.classList.toggle('win', s === 'won');
     show(el.resume, s === 'paused');
 
     if (s === 'ready') showBriefing();
-    if (s === 'paused') {
-      el.title.textContent = 'PAUSA';
-      el.oScore.textContent = '';
-      el.detail.textContent = '';
-      el.restart.textContent = 'Reiniciar';
-    } else if (s === 'over') {
+    if (s === 'over') {
       const ch = engine.mode === 'challenge';
       el.title.textContent = ch ? 'DERROTA' : 'GAME OVER';
       el.oScore.textContent = `Puntuación: ${engine.score.toLocaleString()}`;
@@ -472,7 +557,20 @@
     if (BLOCKED_KEYS.has(e.code)) e.preventDefault();
     const s = engine.status;
 
-    if (e.code === 'KeyP') { engine.togglePause(); return; }
+    if (s === 'paused') {
+      if (e.code === 'KeyP' || e.code === 'Escape') {
+        if (!e.repeat) togglePause();
+        return;
+      }
+      if (e.repeat && menuKeys.has(e.code)) return;
+      menuKeys.add(e.code);
+      pauseNav(e);
+      return;
+    }
+    if (e.code === 'KeyP') { if (!e.repeat) togglePause(); return; }
+    if (s === 'playing' && performance.now() < guardUntil) return;
+    if (s === 'playing' && e.code === 'Escape') { togglePause(); return; }
+    if (menuKeys.has(e.code)) { if (e.repeat) return; menuKeys.delete(e.code); }
 
     if (s === 'targeting') {
       switch (e.code) {
@@ -509,6 +607,8 @@
     }
   });
 
+  document.addEventListener('keyup', e => menuKeys.delete(e.code));
+
   // Ratón: selección de objetivo de los power-ups
   function cellFromEvent(e) {
     const rect = canvas.getBoundingClientRect();
@@ -541,7 +641,7 @@
   el.resume.addEventListener('click', () => engine.togglePause());
   el.menuBtn.addEventListener('click', () => { hideOverlays(); showMain(); });
   el.toMenu.addEventListener('click', () => { hideOverlays(); showMain(); });
-  function hideOverlays() { show(el.overlay, false); show(el.abilityMenu, false); shownStatus = null; }
+  function hideOverlays() { show(el.overlay, false); show(el.pauseMenu, false); show(el.abilityMenu, false); shownStatus = null; }
 
   // ---------- Tema y sonido ----------
   function applyTheme(theme, save) {
