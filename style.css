@@ -380,3 +380,10 @@ kbd {
   .panel { width: 140px; }
   .hint { bottom: -64px; }
 }
+
+/* Menú de pausa */
+#pause-menu { z-index: 6; }
+#pause-menu .menu-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.controls-list { display: grid; grid-template-columns: auto auto; gap: 6px 18px; text-align: left; font-size: 13px; margin: 4px 0; }
+.controls-list dt { font-weight: 700; color: var(--accent); }
+.controls-list dd { margin: 0; color: var(--controls-text); }
