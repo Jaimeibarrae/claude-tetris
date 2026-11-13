@@ -45,7 +45,7 @@
       this.score = 0;
       this.lines = 0;
       const sl = Math.trunc(Number(opts.startLevel));
-      this.startLevel = opts.challenge || !Number.isFinite(sl) ? 1 : Math.min(15, Math.max(1, sl));
+      this.startLevel = opts.challenge || Number.isNaN(sl) ? 1 : Math.min(15, Math.max(1, sl));
       this.level = this.startLevel;
       this.dropAccum = 0;
       this.lastAction = null;
