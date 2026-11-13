@@ -13,10 +13,61 @@
 </head>
 <body>
   <h1 class="game-title">TETRIS</h1>
+
+  <!-- Objetivo y progreso del modo desafío -->
+  <div id="challenge-hud" class="challenge-hud hidden">
+    <div class="ch-top">
+      <span id="ch-name"></span>
+      <span id="ch-timer"></span>
+    </div>
+    <div class="bar"><div id="ch-fill" class="bar-fill"></div></div>
+    <div id="ch-text" class="ch-text"></div>
+  </div>
+
   <div class="wrapper">
     <div class="game-container">
-      <canvas id="board" width="300" height="600"></canvas>
 
+      <!-- Panel izquierdo: HOLD, power-up, energía, combo -->
+      <aside class="panel panel-left">
+        <div class="panel-section" id="hold-section">
+          <span class="label">HOLD <kbd>C</kbd></span>
+          <canvas id="hold-canvas" width="120" height="120"></canvas>
+        </div>
+
+        <div class="panel-section">
+          <span class="label">POWER-UP <kbd>E</kbd></span>
+          <button id="powerup-slot" type="button" class="slot empty">
+            <span id="pu-icon" class="slot-icon">·</span>
+            <span id="pu-name">Vacío</span>
+          </button>
+        </div>
+
+        <div class="panel-section">
+          <span class="label">ENERGÍA</span>
+          <div class="bar energy"><div id="energy-fill" class="bar-fill"></div></div>
+          <button id="ability-btn" type="button" class="ability-btn">Habilidades <kbd>Q</kbd></button>
+        </div>
+
+        <div class="panel-section">
+          <span class="label">COMBO</span>
+          <div class="combo-row">
+            <span class="value" id="combo-value">x0</span>
+            <span id="b2b-badge" class="badge hidden">B2B</span>
+          </div>
+        </div>
+
+        <div class="panel-section" id="effects">
+          <span id="fx-freeze" class="chip chip-freeze hidden"></span>
+          <span id="fx-slow" class="chip chip-slow hidden"></span>
+          <span id="fx-foresight" class="chip chip-fore hidden"></span>
+        </div>
+      </aside>
+
+      <div class="board-wrap">
+        <canvas id="board" width="300" height="600"></canvas>
+      </div>
+
+      <!-- Panel derecho: marcador, siguiente, controles -->
       <aside class="panel">
         <div class="panel-section">
           <span class="label">SCORE</span>
@@ -34,34 +85,73 @@
         <div class="panel-section">
           <span class="label">NEXT</span>
           <canvas id="next-canvas" width="120" height="120"></canvas>
+          <canvas id="next-extra" width="120" height="200" class="hidden"></canvas>
         </div>
 
         <div class="panel-section controls">
           <span class="label">CONTROLS</span>
           <ul>
             <li><kbd>←</kbd><kbd>→</kbd> mover</li>
-            <li><kbd>↑</kbd> rotar</li>
+            <li><kbd>↑</kbd><kbd>X</kbd> rotar · <kbd>Z</kbd> inverso</li>
             <li><kbd>↓</kbd> bajar</li>
             <li><kbd>Space</kbd> caída</li>
+            <li><kbd>C</kbd> / <kbd>Shift</kbd> hold</li>
+            <li><kbd>E</kbd> power-up</li>
+            <li><kbd>Q</kbd> habilidades</li>
             <li><kbd>P</kbd> pausa</li>
           </ul>
         </div>
 
-        <div class="panel-section">
+        <div class="panel-section buttons">
           <button id="theme-toggle" type="button" aria-pressed="false">Modo claro</button>
+          <button id="mute-btn" type="button" aria-pressed="false">Sonido: sí</button>
+          <button id="to-menu-btn" type="button">Menú</button>
         </div>
       </aside>
     </div>
 
+    <div id="hint" class="hint hidden"></div>
+
+    <!-- Pausa / Game Over / Victoria / Derrota -->
     <div id="overlay" class="overlay hidden">
       <div class="overlay-box">
         <p id="overlay-title">GAME OVER</p>
         <p id="overlay-score"></p>
-        <button id="restart-btn">Reiniciar</button>
+        <p id="overlay-detail"></p>
+        <div class="overlay-buttons">
+          <button id="resume-btn" type="button" class="hidden">Reanudar</button>
+          <button id="restart-btn" type="button">Reiniciar</button>
+          <button id="menu-btn" type="button" class="secondary">Menú</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Menú principal / desafíos / presentación -->
+    <div id="menu" class="overlay menu hidden">
+      <div id="menu-box" class="overlay-box menu-box"></div>
+    </div>
+
+    <!-- Menú de habilidades -->
+    <div id="ability-menu" class="overlay hidden">
+      <div class="overlay-box ability-box">
+        <p class="menu-title">HABILIDADES</p>
+        <div id="ability-list" class="ability-list"></div>
+        <p class="menu-hint">Pulsa 1–5 o haz clic · <kbd>Esc</kbd> cierra</p>
       </div>
     </div>
   </div>
 
+  <script src="js/config.js"></script>
+  <script src="js/board.js"></script>
+  <script src="js/pieces.js"></script>
+  <script src="js/managers/hold.js"></script>
+  <script src="js/managers/combo.js"></script>
+  <script src="js/managers/powerups.js"></script>
+  <script src="js/managers/abilities.js"></script>
+  <script src="js/managers/challenge.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/fx.js"></script>
   <script src="game.js"></script>
 </body>
 </html>
